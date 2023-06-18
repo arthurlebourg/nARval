@@ -1,5 +1,5 @@
-import { addComponent } from 'bitecs';
-import { addEntity, IWorld, Types, defineComponent} from 'bitecs';
+// @ts-ignore
+import { addEntity, IWorld, Types, defineComponent, addComponent } from 'bitecs';
 import { Object3D } from 'three';
 
 const {f32, ui32, ui8} = Types;
@@ -48,7 +48,7 @@ type NetworkedComponentType = {
 
 export const NetworkedComponent = defineComponent<NetworkedComponentType>(NetworkedSchema)
 
-function setup_entity(three_object: Object3D, world : IWorld) {
+export function setup_entity(three_object: Object3D, world : IWorld) {
     const ent = addEntity(world);
 
     addComponent(world, TransformComponent, ent);
