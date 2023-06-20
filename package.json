@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "server": "tsc && vite build && node server",
+    "build": "tsc && vite build && cp -r public/* dist/",
+    "server": "tsc && vite build && cp -r public/* dist/ && node server",
     "preview": "vite preview"
   },
   "devDependencies": {
@@ -16,6 +16,7 @@
     "vite": "^4.3.9"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.2-rc2",
     "express": "^4.18.2",
     "path": "^0.12.7",
     "three": "^0.153.0",
