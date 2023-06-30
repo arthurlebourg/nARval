@@ -1,4 +1,4 @@
-const runningMode = "IMAGE";
+/*const runningMode = "IMAGE";
 
 import { ImageSegmenter, FilesetResolver, ImageSegmenterResult } from "@mediapipe/tasks-vision";
 
@@ -34,7 +34,7 @@ async function createImageSegmenter() {
   const imageSegmenter = await ImageSegmenter.createFromOptions(vision, {
     baseOptions: {
       modelAssetPath:
-        "/water_seg_lite.tflite",
+        "/resnet50_waterseg.tflite",
     },
     outputCategoryMask: true,
     outputConfidenceMasks: false,
@@ -74,4 +74,80 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dataNew = new ImageData(uint8Array, width, height);
         cxt.putImageData(dataNew, 0, 0);
     }
-});
+});*/
+
+import '@tensorflow/tfjs-backend-webgl';
+
+import {SemanticSegmentation, load} from '@tensorflow-models/deeplab';
+import * as tf from '@tensorflow/tfjs-core';
+
+let deeplab : SemanticSegmentation;
+
+const initializeModels = async () => {
+    const quantizationBytes = 4;
+    deeplab = await load({base :'ade20k', quantizationBytes});
+    await tf.nextFrame();
+    await runDeeplab();
+};
+
+const displaySegmentationMap = (deeplabOutput : any) => {
+ const {legend, height, width, segmentationMap} = deeplabOutput;
+ const canvas = document.getElementById('output-image')! as HTMLCanvasElement;
+ const ctx = canvas.getContext('2d')!;
+
+ const segmentationMapData = new ImageData(segmentationMap, width, height);
+ canvas.style.width = '100%';
+ canvas.style.height = '100%';
+ canvas.width = width;
+ canvas.height = height;
+ ctx.putImageData(segmentationMapData, 0, 0);
+
+ const legendList = document.getElementById('legend')!;
+ while (legendList.firstChild) {
+   legendList.removeChild(legendList.firstChild);
+ }
+
+ Object.keys(legend).forEach((label) => {
+   const tag = document.createElement('span');
+   tag.innerHTML = label;
+   const [red, green, blue] = legend[label];
+   tag.classList.add('column');
+   tag.style.backgroundColor = `rgb(${red}, ${green}, ${blue})`;
+   tag.style.padding = '1em';
+   tag.style.margin = '1em';
+   tag.style.color = '#ffffff';
+
+   legendList.appendChild(tag);
+ });
+
+};
+
+const status = (message : string) => {
+ const statusMessage = document.getElementById('status-message')!;
+ statusMessage.innerText = message;
+ console.log(message);
+};
+
+const runPrediction = (input : any, initialisationStart : any) => {
+   deeplab.segment(input).then((output) => {
+     displaySegmentationMap(output);
+     status(`Ran in ${
+         ((performance.now() - initialisationStart) / 1000).toFixed(2)} s`);
+   });
+};
+
+const runDeeplab = async () => {
+ status(`Running the inference...`);
+
+    const predictionStart = performance.now();
+    const input = document.getElementById('image')! as HTMLImageElement;
+    if (input.complete && input.naturalHeight !== 0) {
+    runPrediction(input, predictionStart);
+    } else {
+    input.onload = () => {
+        runPrediction(input, predictionStart);
+    };
+    }
+};
+
+window.onload = initializeModels;
