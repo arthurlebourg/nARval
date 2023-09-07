@@ -1,5 +1,3 @@
-
-
 export class SessionManager {
     private _username: string;
     private WebSocket: WebSocket;
