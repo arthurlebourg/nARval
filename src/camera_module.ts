@@ -1,17 +1,16 @@
 import { Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Scene, Texture, WebGLRenderer } from "three";
 
 export class CameraModule {
-    private _renderer : WebGLRenderer;
-    private _reference_space : XRReferenceSpace;
-    private _binding : XRWebGLBinding;
+    private _renderer: WebGLRenderer;
+    private _reference_space: XRReferenceSpace;
+    private _binding: XRWebGLBinding;
 
-    private _texture_camera : PerspectiveCamera;
-    private _texture_renderer : WebGLRenderer;
-    private _texture_scene : Scene;
-    private _texture_material : MeshBasicMaterial;
+    private _texture_camera: PerspectiveCamera;
+    private _texture_renderer: WebGLRenderer;
+    private _texture_scene: Scene;
+    private _texture_material: MeshBasicMaterial;
 
-    private constructor(renderer : WebGLRenderer, reference_space : XRReferenceSpace, binding : XRWebGLBinding)
-    {
+    private constructor(renderer: WebGLRenderer, reference_space: XRReferenceSpace, binding: XRWebGLBinding) {
         this._renderer = renderer;
         this._reference_space = reference_space;
         this._binding = binding;
@@ -21,15 +20,13 @@ export class CameraModule {
         this._texture_material = new MeshBasicMaterial();
 
         const geometry = new PlaneGeometry();
-                    
+
         this._texture_scene.add(new Mesh(geometry, this._texture_material));
     }
 
-    public static async make_camera_module(renderer : WebGLRenderer)
-    {
+    public static async make_camera_module(renderer: WebGLRenderer) {
         let session = renderer.xr.getSession();
-        while (!session)
-        {
+        while (!session) {
             console.log("Waiting for session");
             session = renderer.xr.getSession();
             await new Promise((resolve) => setTimeout(resolve, 100));
@@ -38,11 +35,9 @@ export class CameraModule {
         const reference_space = await session.requestReferenceSpace('local');
 
         let binding = renderer.xr.getBinding();
-        if (!binding)
-        {
+        if (!binding) {
             let context = renderer.getContext();
-            while (!context)
-            {
+            while (!context) {
                 console.log("Waiting for context");
                 context = renderer.getContext();
                 await new Promise((resolve) => setTimeout(resolve, 100));
@@ -55,8 +50,7 @@ export class CameraModule {
         return camera_module;
     }
 
-    public get_camera_image() : Texture | null
-    {
+    public get_camera_image(): Texture | null {
         const frame = this._renderer.xr.getFrame();
         if (!frame) {
             //console.error("No frame");
@@ -69,13 +63,11 @@ export class CameraModule {
             return null;
         }
 
-        for (const view of viewerPose.views)
-        {
+        for (const view of viewerPose.views) {
             // @ts-ignore
-            if (view.camera)
-            {
+            if (view.camera) {
                 // @ts-ignore
-                const cameraTexture : WebGLTexture = this._binding.getCameraImage(view.camera);
+                const cameraTexture: WebGLTexture = this._binding.getCameraImage(view.camera);
 
                 const texture = new Texture();
                 this._texture_material.map = texture;
@@ -90,7 +82,7 @@ export class CameraModule {
         return null;
 
     }
-    
+
 }
 
 

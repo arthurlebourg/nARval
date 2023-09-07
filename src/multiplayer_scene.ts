@@ -1,7 +1,7 @@
 import { BoxGeometry, Mesh, MeshBasicMaterial, Object3D, Scene } from "three"
 
 export class MultiplayerScene extends Scene {
-    private offset_corrector : Object3D;
+    private offset_corrector: Object3D;
 
     constructor() {
         super();

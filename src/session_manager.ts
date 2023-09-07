@@ -12,7 +12,7 @@ export class SessionManager {
         }
     }
 
-    public static initialize(username : string) {
+    public static initialize(username: string) {
         this._instance = new SessionManager(username);
     }
 
