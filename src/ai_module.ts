@@ -3,12 +3,21 @@ import '@tensorflow/tfjs-backend-webgl';
 import { SemanticSegmentation, load } from '@tensorflow-models/deeplab';
 import * as tf from '@tensorflow/tfjs-core';
 import { DeepLabOutput } from '@tensorflow-models/deeplab/dist/types';
+import { PerspectiveCamera, Scene, Texture, WebGLRenderer } from 'three';
 
 export class AIModule {
     private _deeplab: SemanticSegmentation;
+    private _empty_scene: Scene;
+    private _renderer: WebGLRenderer;
+    private _camera: PerspectiveCamera;
 
     private constructor(deepLab: SemanticSegmentation) {
         this._deeplab = deepLab;
+        this._empty_scene = new Scene();
+        this._renderer = new WebGLRenderer();
+        this._renderer.domElement.id = 'output-image';
+        document.body.appendChild(this._renderer.domElement);
+        this._camera = new PerspectiveCamera();
     }
 
     public static async initializeModels() {
@@ -19,7 +28,7 @@ export class AIModule {
         return ai_module;
     };
 
-    private async displaySegmentationMap(deeplabOutput: DeepLabOutput, initialisationStart: any) {
+    private async displaySegmentationMap(deeplabOutput: DeepLabOutput, initialisationStart: number) {
         const { height, width, segmentationMap } = deeplabOutput;
         const canvas = document.getElementById('output-image')! as HTMLCanvasElement;
         const ctx = canvas.getContext('2d')!;
@@ -30,18 +39,6 @@ export class AIModule {
 
         // Filter out the two specified classes by comparing RGB values
         const filteredImage = new Uint8ClampedArray(segmentationMap.length);
-
-        // get image as array also
-        const image = document.getElementById('image')! as HTMLImageElement;
-
-        const imageCanvas = document.createElement('canvas');
-        imageCanvas.width = width;
-        imageCanvas.height = height;
-        const imageCtx = imageCanvas.getContext('2d')!;
-        imageCtx.drawImage(image, 0, 0, width, height);
-        const imageData = imageCtx.getImageData(0, 0, width, height);
-
-        const imageArray = imageData.data;
 
         for (let i = 0; i < segmentationMap.length; i += 4) {
             const r = segmentationMap[i];
@@ -60,15 +57,14 @@ export class AIModule {
             }
             else {
                 // Copy the RGB values to the filtered image array
-                filteredImage[i] = imageArray[i];
-                filteredImage[i + 1] = imageArray[i + 1];
-                filteredImage[i + 2] = imageArray[i + 2];
-                filteredImage[i + 3] = imageArray[i + 3]; // Copy the alpha value
+                filteredImage[i] = 255;
+                filteredImage[i + 1] = 0;
+                filteredImage[i + 2] = 0;
+                filteredImage[i + 3] = 0; // Copy the alpha value
             }
         }
 
         const segmentationMapData = new ImageData(filteredImage, width, height);
-        //const segmentationMapData = new ImageData(segmentationMap, width, height);
         canvas.style.width = '100%';
         canvas.style.height = '100%';
         canvas.width = width;
@@ -76,30 +72,21 @@ export class AIModule {
 
         ctx.putImageData(segmentationMapData, 0, 0);
 
-        const legendList = document.getElementById('legend')!;
-        while (legendList.firstChild) {
-            legendList.removeChild(legendList.firstChild);
-        }
-
         console.log(`Ran in ${((performance.now() - initialisationStart) / 1000).toFixed(2)} s`);
     };
 
-    public async runDeeplab() {
+    public async runDeeplab(image: Texture) {
         console.log(`Running the inference...`);
 
+        this._empty_scene.background = image;
+        console.log("image", image)
+        this._renderer.render(this._empty_scene, this._camera);
+
         const predictionStart = performance.now();
-        const input = document.getElementById('image')! as HTMLImageElement; // TODO: Change this to the input canvas aka the image
-        if (input.complete && input.naturalHeight !== 0) {
-            this._deeplab.segment(input).then((output) => {
-                this.displaySegmentationMap(output, predictionStart);
-            });
-        } else {
-            input.onload = () => {
-                this._deeplab.segment(input).then((output) => {
-                    this.displaySegmentationMap(output, predictionStart);
-                });
-            };
-        }
+        const input = this._renderer.domElement;
+        this._deeplab.segment(input).then((output) => {
+            this.displaySegmentationMap(output, predictionStart);
+        });
     };
 
 }
