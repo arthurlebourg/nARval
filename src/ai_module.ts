@@ -3,21 +3,19 @@ import '@tensorflow/tfjs-backend-webgl';
 import { SemanticSegmentation, load } from '@tensorflow-models/deeplab';
 import * as tf from '@tensorflow/tfjs-core';
 import { DeepLabOutput } from '@tensorflow-models/deeplab/dist/types';
-import { PerspectiveCamera, Scene, Texture, WebGLRenderer } from 'three';
 
 export class AIModule {
     private _deeplab: SemanticSegmentation;
-    private _empty_scene: Scene;
-    private _renderer: WebGLRenderer;
-    private _camera: PerspectiveCamera;
+    private _canvas: OffscreenCanvas;
+    private _ctx: OffscreenCanvasRenderingContext2D;
+    private width: number = 0;
+    private height: number = 0;
 
     private constructor(deepLab: SemanticSegmentation) {
         this._deeplab = deepLab;
-        this._empty_scene = new Scene();
-        this._renderer = new WebGLRenderer();
-        this._renderer.domElement.id = 'output-image';
-        document.body.appendChild(this._renderer.domElement);
-        this._camera = new PerspectiveCamera();
+
+        this._canvas = new OffscreenCanvas(0, 0);
+        this._ctx = this._canvas.getContext('2d')!;
     }
 
     public static async initializeModels() {
@@ -30,8 +28,6 @@ export class AIModule {
 
     private async displaySegmentationMap(deeplabOutput: DeepLabOutput, initialisationStart: number) {
         const { height, width, segmentationMap } = deeplabOutput;
-        const canvas = document.getElementById('output-image')! as HTMLCanvasElement;
-        const ctx = canvas.getContext('2d')!;
 
         // Assuming you have the RGB values of the classes you want to filter out
         const classColor1: [number, number, number] = [61, 230, 250]; // First class color to filter (e.g., red)
@@ -60,32 +56,35 @@ export class AIModule {
                 filteredImage[i] = 255;
                 filteredImage[i + 1] = 0;
                 filteredImage[i + 2] = 0;
-                filteredImage[i + 3] = 0; // Copy the alpha value
+                filteredImage[i + 3] = 255; // Copy the alpha value
             }
         }
 
         const segmentationMapData = new ImageData(filteredImage, width, height);
-        canvas.style.width = '100%';
-        canvas.style.height = '100%';
-        canvas.width = width;
-        canvas.height = height;
-
-        ctx.putImageData(segmentationMapData, 0, 0);
 
         console.log(`Ran in ${((performance.now() - initialisationStart) / 1000).toFixed(2)} s`);
+        return segmentationMapData;
     };
 
-    public async runDeeplab(image: Texture) {
+    public async runDeeplab(image: ImageBitmap, width: number, height: number) {
         console.log(`Running the inference...`);
 
-        this._empty_scene.background = image;
-        console.log("image", image)
-        this._renderer.render(this._empty_scene, this._camera);
-
         const predictionStart = performance.now();
-        const input = this._renderer.domElement;
-        this._deeplab.segment(input).then((output) => {
-            this.displaySegmentationMap(output, predictionStart);
+
+        if (this.width !== width || this.height !== height) {
+            this._canvas.width = width;
+            this._canvas.height = height;
+            this.width = width;
+            this.height = height;
+            this._ctx = this._canvas.getContext('2d')!;
+        }
+
+        this._ctx.drawImage(image, 0, 0);
+        image.close();
+        const imgData = this._ctx.getImageData(0, 0, width, height);
+
+        return this._deeplab.segment(imgData).then((output) => {
+            return this.displaySegmentationMap(output, predictionStart);
         });
     };
 

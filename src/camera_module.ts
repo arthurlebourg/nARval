@@ -37,7 +37,7 @@ export class CameraModule {
         return camera_module;
     }
 
-    public get_camera_image(texture : Texture): Texture | null {
+    public get_camera_image(texture: Texture): [number, number] | null {
         const frame = this._renderer.xr.getFrame();
         if (!frame) {
             //console.error("No frame");
@@ -58,7 +58,8 @@ export class CameraModule {
 
                 const texProps = this._renderer.properties.get(texture);
                 texProps.__webglTexture = cameraTexture;
-                return texture;
+                //@ts-ignore
+                return [view.camera.width, view.camera.height];
             }
         }
 

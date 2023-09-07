@@ -1,12 +1,9 @@
-import { BoxGeometry, Mesh, MeshBasicMaterial, PerspectiveCamera, Texture, WebGLRenderer } from 'three'
+import { BoxGeometry, Mesh, MeshBasicMaterial, PerspectiveCamera, Scene, Texture, WebGLRenderer } from 'three'
 import './style.css'
 
 import { ARButton } from 'three/examples/jsm/webxr/ARButton.js'
 import { MultiplayerScene } from './multiplayer_scene'
 import { CameraModule } from './camera_module'
-import { AIModule } from './ai_module'
-
-
 
 document.addEventListener('DOMContentLoaded', () => {
     const renderer = new WebGLRenderer({ antialias: true })
@@ -27,25 +24,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = ARButton.createButton(renderer, { requiredFeatures: ['hit-test', 'camera-access'] })
     document.body.appendChild(button);
 
-    const texture : Texture = new Texture();
+    const texture: Texture = new Texture();
+
+    const empty_scene = new Scene();
+    empty_scene.background = texture;
+    const empty_renderer = new WebGLRenderer({ preserveDrawingBuffer: true });
+
+    const inference_worker = new Worker(new URL('./inference.worker.ts', import.meta.url));
+
+    let init = false;
 
     button.addEventListener('click', () => {
+        inference_worker.postMessage({ type: "start" });
         CameraModule.make_camera_module(renderer).then((camera_module) => {
-            AIModule.initializeModels().then((ai_module) => {
-                const render = () => {
-                    if (!renderer.xr.getFrame()) {
-                        return;
-                    }
-                    camera_module.get_camera_image(texture);
-                    if (texture) {
-                        ai_module;//.runDeeplab(texture);
-                        cube.material.map = texture;
-
-                    }
-                    renderer.render(scene, camera)
+            const render = () => {
+                if (!renderer.xr.getFrame()) {
+                    return;
                 }
-                renderer.setAnimationLoop(render);
-            })
+
+                inference_worker.onmessage = (event) => {
+                    const { data } = event;
+                    console.log("received results:", data);
+                    const size = camera_module.get_camera_image(texture);
+                    if (size) {
+                        camera.aspect = size[0] / size[1];
+                        camera.updateProjectionMatrix();
+                        empty_renderer.setSize(size[0], size[1]);
+                        empty_renderer.render(empty_scene, camera);
+                        createImageBitmap(empty_renderer.domElement).then((image_bmp) => {
+                            console.log("sending image");
+                            inference_worker.postMessage({ image: image_bmp, size: size });
+                        });
+                        cube.material.map = texture;
+                    }
+                }
+
+                if (!init) {
+                    const size = camera_module.get_camera_image(texture);
+                    if (size) {
+                        console.log("initializing");
+                        init = true;
+                        camera.aspect = size[0] / size[1];
+                        camera.updateProjectionMatrix();
+                        empty_renderer.setSize(size[0], size[1]);
+                        empty_renderer.render(empty_scene, camera);
+                        createImageBitmap(empty_renderer.domElement).then((image_bmp) => {
+                            inference_worker.postMessage({ image: image_bmp, size: size });
+                        });
+                        cube.material.map = texture;
+                    }
+                }
+                renderer.render(scene, camera)
+            }
+            renderer.setAnimationLoop(render);
         })
     })
 })
