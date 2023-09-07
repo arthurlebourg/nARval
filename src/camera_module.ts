@@ -1,15 +1,28 @@
-import { WebGLRenderer } from "three";
+import { Mesh, MeshBasicMaterial, PerspectiveCamera, PlaneGeometry, Scene, Texture, WebGLRenderer } from "three";
 
 export class CameraModule {
     private _renderer : WebGLRenderer;
     private _reference_space : XRReferenceSpace;
     private _binding : XRWebGLBinding;
 
+    private _texture_camera : PerspectiveCamera;
+    private _texture_renderer : WebGLRenderer;
+    private _texture_scene : Scene;
+    private _texture_material : MeshBasicMaterial;
+
     private constructor(renderer : WebGLRenderer, reference_space : XRReferenceSpace, binding : XRWebGLBinding)
     {
         this._renderer = renderer;
         this._reference_space = reference_space;
         this._binding = binding;
+        this._texture_camera = new PerspectiveCamera();
+        this._texture_renderer = new WebGLRenderer();
+        this._texture_scene = new Scene();
+        this._texture_material = new MeshBasicMaterial();
+
+        const geometry = new PlaneGeometry();
+                    
+        this._texture_scene.add(new Mesh(geometry, this._texture_material));
     }
 
     public static async make_camera_module(renderer : WebGLRenderer)
@@ -42,7 +55,7 @@ export class CameraModule {
         return camera_module;
     }
 
-    public get_camera_image()
+    public get_camera_image() : Texture | null
     {
         const frame = this._renderer.xr.getFrame();
         if (!frame) {
@@ -62,8 +75,14 @@ export class CameraModule {
             if (view.camera)
             {
                 // @ts-ignore
-                const cameraTexture = this._binding.getCameraImage(view.camera);
-                return cameraTexture;
+                const cameraTexture : WebGLTexture = this._binding.getCameraImage(view.camera);
+
+                const texture = new Texture();
+                this._texture_material.map = texture;
+                this._texture_renderer.render(this._texture_scene, this._texture_camera);
+                const texProps = this._texture_renderer.properties.get(texture);
+                texProps.__webglTexture = cameraTexture;
+                return texture;
             }
         }
 
