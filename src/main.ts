@@ -6,33 +6,44 @@ import { MultiplayerScene } from './multiplayer_scene'
 import { CameraModule } from './camera_module'
 
 document.addEventListener('DOMContentLoaded', () => {
-    const renderer = new WebGLRenderer({ antialias: true })
+    const renderer = new WebGLRenderer({preserveDrawingBuffer: true, antialias: true})
     renderer.xr.enabled = true
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(window.innerWidth, window.innerHeight)
-    //document.body.appendChild(renderer.domElement)
+    renderer.domElement.style.border = '10px solid black';
+    document.body.appendChild(renderer.domElement);
 
     const scene = new MultiplayerScene();
+
+    const camera = new PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20)
+
+    const button = ARButton.createButton(renderer, { requiredFeatures: ['camera-access'] })
+    document.body.appendChild(button);
+
+    const camera_feed_as_texture: Texture = new Texture();
     // add a cube to the scene
     const geometry = new BoxGeometry(0.1, 0.1, 0.1);
-    const material = new MeshBasicMaterial({ color: 0x00ff00 });
+    const material = new MeshBasicMaterial({map : camera_feed_as_texture, color: 0xffff00 });
     const cube = new Mesh(geometry, material);
     cube.position.z = -0.5;
     scene.add(cube);
-    const camera = new PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20)
 
-    const button = ARButton.createButton(renderer, { requiredFeatures: ['hit-test', 'camera-access'] })
-    document.body.appendChild(button);
-
-    const texture: Texture = new Texture();
+    const inference_result_as_texture: Texture = new Texture();
 
     const empty_scene = new Scene();
-    empty_scene.background = texture;
-    const empty_renderer = new WebGLRenderer({ preserveDrawingBuffer: true });
+    empty_scene.background = camera_feed_as_texture;
 
     const inference_worker = new Worker(new URL('./inference.worker.ts', import.meta.url));
 
-    let init = false;
+    let take_picture = false;
+
+    inference_worker.onmessage = (event) => {
+        const { data } = event;
+        take_picture = true;
+        const imageData = data.segmentationMapData;
+        inference_result_as_texture.image = imageData;
+        inference_result_as_texture.needsUpdate = true;
+    }
 
     button.addEventListener('click', () => {
         inference_worker.postMessage({ type: "start" });
@@ -42,37 +53,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                inference_worker.onmessage = (event) => {
-                    const { data } = event;
-                    console.log("received results:", data);
-                    const size = camera_module.get_camera_image(texture);
-                    if (size) {
-                        camera.aspect = size[0] / size[1];
-                        camera.updateProjectionMatrix();
-                        empty_renderer.setSize(size[0], size[1]);
-                        empty_renderer.render(empty_scene, camera);
-                        createImageBitmap(empty_renderer.domElement).then((image_bmp) => {
-                            console.log("sending image");
-                            inference_worker.postMessage({ image: image_bmp, size: size });
-                        });
-                        cube.material.map = texture;
-                    }
-                }
+                const size = camera_module.get_camera_image(camera_feed_as_texture);
+                const render_target = renderer.getRenderTarget();
+                renderer.setRenderTarget(null);
+                renderer.render(empty_scene, camera);
+                renderer.setRenderTarget(render_target);
+                if (take_picture && size) {
+                    take_picture = false;
+                    
+                    createImageBitmap(renderer.domElement).then((image_bmp) => {
+                        inference_worker.postMessage({ image: image_bmp, size: size });
 
-                if (!init) {
-                    const size = camera_module.get_camera_image(texture);
-                    if (size) {
-                        console.log("initializing");
-                        init = true;
-                        camera.aspect = size[0] / size[1];
-                        camera.updateProjectionMatrix();
-                        empty_renderer.setSize(size[0], size[1]);
-                        empty_renderer.render(empty_scene, camera);
-                        createImageBitmap(empty_renderer.domElement).then((image_bmp) => {
-                            inference_worker.postMessage({ image: image_bmp, size: size });
-                        });
-                        cube.material.map = texture;
-                    }
+                        renderer.setRenderTarget(render_target);
+                    });
                 }
                 renderer.render(scene, camera)
             }

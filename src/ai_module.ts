@@ -15,7 +15,7 @@ export class AIModule {
         this._deeplab = deepLab;
 
         this._canvas = new OffscreenCanvas(0, 0);
-        this._ctx = this._canvas.getContext('2d')!;
+        this._ctx = this._canvas.getContext('2d', { willReadFrequently: true })!;
     }
 
     public static async initializeModels() {
@@ -36,6 +36,8 @@ export class AIModule {
         // Filter out the two specified classes by comparing RGB values
         const filteredImage = new Uint8ClampedArray(segmentationMap.length);
 
+        let n = 0;
+
         for (let i = 0; i < segmentationMap.length; i += 4) {
             const r = segmentationMap[i];
             const g = segmentationMap[i + 1];
@@ -50,19 +52,20 @@ export class AIModule {
                 filteredImage[i + 1] = 230;
                 filteredImage[i + 2] = 250;
                 filteredImage[i + 3] = segmentationMap[i + 3]; // Copy the alpha value
+                n++;
             }
             else {
                 // Copy the RGB values to the filtered image array
-                filteredImage[i] = 255;
-                filteredImage[i + 1] = 0;
+                filteredImage[i] = 0;
+                filteredImage[i + 1] = 255;
                 filteredImage[i + 2] = 0;
-                filteredImage[i + 3] = 255; // Copy the alpha value
+                filteredImage[i + 3] = 50;
             }
         }
 
         const segmentationMapData = new ImageData(filteredImage, width, height);
 
-        console.log(`Ran in ${((performance.now() - initialisationStart) / 1000).toFixed(2)} s`);
+        console.log(`Ran in ${((performance.now() - initialisationStart) / 1000).toFixed(2)} s. ${n} pixels got positive.`);
         return segmentationMapData;
     };
 
@@ -76,7 +79,7 @@ export class AIModule {
             this._canvas.height = height;
             this.width = width;
             this.height = height;
-            this._ctx = this._canvas.getContext('2d')!;
+            this._ctx = this._canvas.getContext('2d', { willReadFrequently: true })!;
         }
 
         this._ctx.drawImage(image, 0, 0);
