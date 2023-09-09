@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let take_picture = true;
 
+    const offscreen_canvas = new OffscreenCanvas(0, 0);
+    const offscreen_canvas_context = offscreen_canvas.getContext('2d', { willReadFrequently: true })!;
+
     inference_worker.onmessage = (event) => {
         const { data } = event;
         take_picture = true;
@@ -62,11 +65,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (take_picture && size) {
                     take_picture = false;
 
-                    createImageBitmap(renderer.domElement).then((image_bmp) => {
-                        inference_worker.postMessage({ image: image_bmp, size: size });
+                    offscreen_canvas.width = size[0];
+                    offscreen_canvas.height = size[1];
 
-                        renderer.setRenderTarget(render_target);
-                    });
+                    offscreen_canvas_context.drawImage(renderer.domElement, 0, 0, size[0], size[1]);
+
+                    const image_data = offscreen_canvas_context.getImageData(0, 0, size[0], size[1]);
+                    inference_worker.postMessage({ image: image_data });
                 }
                 renderer.render(scene, camera)
             }

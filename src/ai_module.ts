@@ -6,16 +6,9 @@ import { DeepLabOutput } from '@tensorflow-models/deeplab/dist/types';
 
 export class AIModule {
     private _deeplab: SemanticSegmentation;
-    private _canvas: OffscreenCanvas;
-    private _ctx: OffscreenCanvasRenderingContext2D;
-    private width: number = 0;
-    private height: number = 0;
 
     private constructor(deepLab: SemanticSegmentation) {
         this._deeplab = deepLab;
-
-        this._canvas = new OffscreenCanvas(0, 0);
-        this._ctx = this._canvas.getContext('2d', { willReadFrequently: true })!;
     }
 
     public static async initializeModels() {
@@ -69,24 +62,12 @@ export class AIModule {
         return segmentationMapData;
     };
 
-    public async runDeeplab(image: ImageBitmap, width: number, height: number) {
+    public async runDeeplab(image: ImageData) {
         console.log(`Running the inference...`);
 
         const predictionStart = performance.now();
 
-        if (this.width !== width || this.height !== height) {
-            this._canvas.width = width;
-            this._canvas.height = height;
-            this.width = width;
-            this.height = height;
-            this._ctx = this._canvas.getContext('2d', { willReadFrequently: true })!;
-        }
-
-        this._ctx.drawImage(image, 0, 0);
-        image.close();
-        const imgData = this._ctx.getImageData(0, 0, width, height);
-
-        return this._deeplab.segment(imgData).then((output) => {
+        return this._deeplab.segment(image).then((output) => {
             return this.displaySegmentationMap(output, predictionStart);
         });
     };

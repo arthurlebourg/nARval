@@ -15,7 +15,7 @@ self.onmessage = (event) => {
             return;
         }
 
-        ai_module.runDeeplab(data.image, data.size[0], data.size[1]).then((segmentationMapData) => {
+        ai_module.runDeeplab(data.image).then((segmentationMapData) => {
             self.postMessage({ segmentationMapData: segmentationMapData });
         });
     }
