@@ -64,7 +64,6 @@ export class AIModule {
 
     public async runDeeplab(image: ImageData) {
         console.log(`Running the inference...`);
-
         const predictionStart = performance.now();
 
         return this._deeplab.segment(image).then((output) => {

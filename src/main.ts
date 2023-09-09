@@ -1,4 +1,4 @@
-import { BoxGeometry, Mesh, MeshBasicMaterial, PerspectiveCamera, Scene, Texture, WebGLRenderer } from 'three'
+import { PerspectiveCamera, Scene, Texture, WebGLRenderer } from 'three'
 import './style.css'
 
 import { ARButton } from 'three/examples/jsm/webxr/ARButton.js'
@@ -21,12 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(button);
 
     const camera_feed_as_texture: Texture = new Texture();
-    // add a cube to the scene
-    const geometry = new BoxGeometry(0.1, 0.1, 0.1);
-    const material = new MeshBasicMaterial({ map: camera_feed_as_texture, color: 0xffff00 });
-    const cube = new Mesh(geometry, material);
-    cube.position.z = -0.5;
-    scene.add(cube);
 
     const inference_result_as_texture: Texture = new Texture();
     scene.background = inference_result_as_texture;
@@ -57,21 +51,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                const size = camera_module.get_camera_image(camera_feed_as_texture);
-                const render_target = renderer.getRenderTarget();
-                renderer.setRenderTarget(null);
-                renderer.render(empty_scene, camera);
-                renderer.setRenderTarget(render_target);
-                if (take_picture && size) {
-                    take_picture = false;
+                if (take_picture) {
+                    const size = camera_module.get_camera_image(camera_feed_as_texture);
+                    if (size) {
+                        const render_target = renderer.getRenderTarget();
+                        renderer.setRenderTarget(null);
+                        renderer.render(empty_scene, camera);
+                        renderer.setRenderTarget(render_target);
+                        take_picture = false;
 
-                    offscreen_canvas.width = size[0];
-                    offscreen_canvas.height = size[1];
+                        offscreen_canvas.width = size[0];
+                        offscreen_canvas.height = size[1];
 
-                    offscreen_canvas_context.drawImage(renderer.domElement, 0, 0, size[0], size[1]);
+                        offscreen_canvas_context.drawImage(renderer.domElement, 0, 0, size[0], size[1]);
 
-                    const image_data = offscreen_canvas_context.getImageData(0, 0, size[0], size[1]);
-                    inference_worker.postMessage({ image: image_data });
+                        const image_data = offscreen_canvas_context.getImageData(0, 0, size[0], size[1]);
+                        inference_worker.postMessage({ image: image_data });
+                    }
                 }
                 renderer.render(scene, camera)
             }
