@@ -57,9 +57,9 @@ export class AIModule {
             else {
                 // Copy the RGB values to the filtered image array
                 filteredImage[i] = 0;
-                filteredImage[i + 1] = 255;
+                filteredImage[i + 1] = 0;
                 filteredImage[i + 2] = 0;
-                filteredImage[i + 3] = 50;
+                filteredImage[i + 3] = 0;
             }
         }
 

@@ -6,7 +6,7 @@ import { MultiplayerScene } from './multiplayer_scene'
 import { CameraModule } from './camera_module'
 
 document.addEventListener('DOMContentLoaded', () => {
-    const renderer = new WebGLRenderer({preserveDrawingBuffer: true, antialias: true})
+    const renderer = new WebGLRenderer({ preserveDrawingBuffer: true, antialias: true })
     renderer.xr.enabled = true
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(window.innerWidth, window.innerHeight)
@@ -23,19 +23,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const camera_feed_as_texture: Texture = new Texture();
     // add a cube to the scene
     const geometry = new BoxGeometry(0.1, 0.1, 0.1);
-    const material = new MeshBasicMaterial({map : camera_feed_as_texture, color: 0xffff00 });
+    const material = new MeshBasicMaterial({ map: camera_feed_as_texture, color: 0xffff00 });
     const cube = new Mesh(geometry, material);
     cube.position.z = -0.5;
     scene.add(cube);
 
     const inference_result_as_texture: Texture = new Texture();
+    scene.background = inference_result_as_texture;
 
     const empty_scene = new Scene();
     empty_scene.background = camera_feed_as_texture;
 
     const inference_worker = new Worker(new URL('./inference.worker.ts', import.meta.url));
 
-    let take_picture = false;
+    let take_picture = true;
 
     inference_worker.onmessage = (event) => {
         const { data } = event;
@@ -60,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderer.setRenderTarget(render_target);
                 if (take_picture && size) {
                     take_picture = false;
-                    
+
                     createImageBitmap(renderer.domElement).then((image_bmp) => {
                         inference_worker.postMessage({ image: image_bmp, size: size });
 
