@@ -179,9 +179,8 @@ async function setupWebcam() : Promise<HTMLVideoElement> {
 }
 
 function preprocess(input: tf.Tensor3D): tf.Tensor {
-    const resized = tf.image.resizeBilinear(input, [512, 512]);
+    const resized = tf.image.resizeBilinear(input, [512, 512]).cast('int32') as tf.Tensor3D;
     const inputImgFloat = resized.toFloat().div(255.0);
-
     // Scale input pixel values to -1 to 1
 
     /*const mean = [0.485, 0.456, 0.406];
@@ -196,19 +195,20 @@ function preprocess(input: tf.Tensor3D): tf.Tensor {
     inputImgNormalized.print();*/
 
     const inputImgNormalized = inputImgFloat.sub(0.5).div(0.5);
-
+    //inputImgNormalized.print();
     const inputTensor = inputImgNormalized.transpose([2, 0, 1]).expandDims();
-
+    //inputTensor.print();
     return inputTensor;
 }
 
 function postprocess(output: tf.Tensor): tf.Tensor {
-    return tf.argMax(output.squeeze(), 2); 
+    //return tf.argMax(output.squeeze(), 2); 
+    return output.argMax(1).squeeze();
 }
 
-async function utilDrawSeg(segMap : tf.Tensor, video : HTMLVideoElement, canvas : HTMLCanvasElement) {
-    const imgHeight = video.videoHeight;
-    const imgWidth = video.videoWidth;
+async function utilDrawSeg(segMap : tf.Tensor, video : HTMLVideoElement | HTMLImageElement, canvas : HTMLCanvasElement) {
+    const imgHeight = video.height;
+    const imgWidth = video.width;
   
     // Reshape to 3D tensor, resize, and reshape back to 2D tensor
     const reshapedTensor = segMap.reshape([1, segMap.shape[0], segMap.shape[1]!, 1]) as tf.Tensor3D;
@@ -226,7 +226,14 @@ async function utilDrawSeg(segMap : tf.Tensor, video : HTMLVideoElement, canvas 
 
 async function run() {
     status('Setting up webcam...');
-    const video = await setupWebcam();
+    //const video = await setupWebcam();
+
+    // put image "https://upload.wikimedia.org/wikipedia/az/6/6d/Abbey_Road_%28albom%29.jpg"
+
+    const video = document.createElement('img');
+    video.src = "./Abbey_Road_(albom).jpg";
+    document.body.appendChild(video);
+    await video.decode();
     status('Loading model...');
     const model = await tf.loadGraphModel('../TopFormer.tfjs/model.json');
     status('Model is ready');
@@ -239,12 +246,16 @@ async function run() {
     async function predict() {
         const tensor = tf.browser.fromPixels(video);
         const preprocessed = preprocess(tensor);
+        tensor.dispose();
+        //preprocessed.print();
         const segmentation = await model.executeAsync({ input: preprocessed }) as tf.Tensor;
-        //segmentation.print();
-        const seg = postprocess(segmentation);
-        //seg.print();
+        segmentation.print();
+        preprocessed.dispose();
+        const seg = postprocess(segmentation) as tf.Tensor3D;
+        console.log("seg:");
+        seg.print();
         // Display the segmentation on the canvas
-        utilDrawSeg(seg as tf.Tensor3D, video, canvas);
+        utilDrawSeg(seg, video, canvas);
         //requestAnimationFrame(predict);
     }
 
