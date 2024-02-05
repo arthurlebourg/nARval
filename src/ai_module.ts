@@ -1,4 +1,4 @@
-import '@tensorflow/tfjs-backend-webgl';
+/*import '@tensorflow/tfjs-backend-webgl';
 
 import { SemanticSegmentation, load } from '@tensorflow-models/deeplab';
 import * as tf from '@tensorflow/tfjs-core';
@@ -71,4 +71,4 @@ export class AIModule {
         });
     };
 
-}
+}*/

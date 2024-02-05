@@ -1,4 +1,4 @@
-import { AIModule } from "./ai_module";
+/*import { AIModule } from "./ai_module";
 
 let ai_module: AIModule = null!;
 self.onmessage = (event) => {
@@ -20,4 +20,4 @@ self.onmessage = (event) => {
         });
     }
 };
-
+*/

@@ -11,6 +11,7 @@ export default defineConfig({
   root,
   plugins: [],
   build: {
+    sourcemap: true,
     outDir,
     emptyOutDir: true,
     rollupOptions: {
