@@ -1,74 +1,59 @@
-/*import '@tensorflow/tfjs-backend-webgl';
-
-import { SemanticSegmentation, load } from '@tensorflow-models/deeplab';
-import * as tf from '@tensorflow/tfjs-core';
-import { DeepLabOutput } from '@tensorflow-models/deeplab/dist/types';
+import * as tf from '@tensorflow/tfjs';
 
 export class AIModule {
-    private _deeplab: SemanticSegmentation;
+    private _model: tf.GraphModel;
+    private constructor(model: tf.GraphModel) {
+        this._model = model;
+        tf.env().set("WEBGL_DELETE_TEXTURE_THRESHOLD", 256000000);
 
-    private constructor(deepLab: SemanticSegmentation) {
-        this._deeplab = deepLab;
     }
 
     public static async initializeModels() {
-        const quantizationBytes = 4;
-        const deeplab = await load({ base: 'ade20k', quantizationBytes });
-        const ai_module = new AIModule(deeplab);
+        const model = await tf.loadGraphModel('./TopFormer.tfjs/model.json');
+
+        const ai_module = new AIModule(model);
         await tf.nextFrame();
         return ai_module;
     };
 
-    private async displaySegmentationMap(deeplabOutput: DeepLabOutput, initialisationStart: number) {
-        const { height, width, segmentationMap } = deeplabOutput;
+    private preprocess(tensor: tf.Tensor3D) {
+        const resized = tf.image.resizeBilinear(tensor, [512, 512]);
+        const normalized = resized.cast("int32").toFloat().div(255.0);
+        resized.dispose();
+        const expanded = normalized.transpose([2, 0, 1]).expandDims();
+        normalized.dispose();
+        return expanded;
+    }
 
-        // Assuming you have the RGB values of the classes you want to filter out
-        const classColor1: [number, number, number] = [61, 230, 250]; // First class color to filter (e.g., red)
-        const classColor2: [number, number, number] = [9, 7, 230]; // Second class color to filter (e.g., green)
+    private postprocess(output: tf.Tensor) {
+        return output.argMax(1).squeeze();
+    }
 
-        // Filter out the two specified classes by comparing RGB values
-        const filteredImage = new Uint8ClampedArray(segmentationMap.length);
+    private resizeAndReshape(segMap: tf.Tensor, imgWidth: number, imgHeight: number) {
+        const reshapedTensor = segMap.reshape([1, segMap.shape[0], segMap.shape[1]!, 1]) as tf.Tensor3D;
+        const resizedTensor3D = tf.image.resizeBilinear(reshapedTensor, [imgHeight, imgWidth]);
+        const resizedTensor2D = (resizedTensor3D.squeeze() as tf.Tensor2D).cast("int32");
 
-        let n = 0;
+        //keep only the values of the tensor that are 32 and 63 and 55 
+        const mask = resizedTensor2D.equal(32).logicalOr(resizedTensor2D.equal(63)).logicalOr(resizedTensor2D.equal(55));
 
-        for (let i = 0; i < segmentationMap.length; i += 4) {
-            const r = segmentationMap[i];
-            const g = segmentationMap[i + 1];
-            const b = segmentationMap[i + 2];
+        // replace all non zero values with 1
+        const mask2 = mask.cast("int32");
+        const mask3 = mask2.mul(tf.scalar(255));
+        return mask3;
+    }
 
-            if (
-                (r === classColor1[0] && g === classColor1[1] && b === classColor1[2]) ||
-                (r === classColor2[0] && g === classColor2[1] && b === classColor2[2])
-            ) {
-                // Copy the RGB values to the filtered image array
-                filteredImage[i] = 61;
-                filteredImage[i + 1] = 230;
-                filteredImage[i + 2] = 250;
-                filteredImage[i + 3] = segmentationMap[i + 3]; // Copy the alpha value
-                n++;
-            }
-            else {
-                // Copy the RGB values to the filtered image array
-                filteredImage[i] = 0;
-                filteredImage[i + 1] = 0;
-                filteredImage[i + 2] = 0;
-                filteredImage[i + 3] = 0;
-            }
-        }
-
-        const segmentationMapData = new ImageData(filteredImage, width, height);
-
-        console.log(`Ran in ${((performance.now() - initialisationStart) / 1000).toFixed(2)} s. ${n} pixels got positive.`);
-        return segmentationMapData;
-    };
-
-    public async runDeeplab(image: ImageData) {
-        console.log(`Running the inference...`);
-        const predictionStart = performance.now();
-
-        return this._deeplab.segment(image).then((output) => {
-            return this.displaySegmentationMap(output, predictionStart);
-        });
-    };
-
-}*/
+    public async predict(input: tf.WebGLData) {
+        // @ts-ignore
+        const tensor = tf.tensor(input, [input.width, input.height, 3], "int32") as tf.Tensor3D;
+        const preprocessed = this.preprocess(tensor);
+        tensor.dispose();
+        const segmentation = await this._model.executeAsync({ input: preprocessed }) as tf.Tensor;
+        preprocessed.dispose();
+        const seg = this.postprocess(segmentation) as tf.Tensor3D;
+        segmentation.dispose();
+        this.resizeAndReshape(seg, input.width, input.height);
+        seg.dispose();
+        return segmentation;
+    }
+}

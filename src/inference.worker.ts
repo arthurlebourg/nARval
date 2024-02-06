@@ -1,23 +1,23 @@
-/*import { AIModule } from "./ai_module";
+import { AIModule } from "./ai_module";
+import * as tf from '@tensorflow/tfjs';
 
 let ai_module: AIModule = null!;
 self.onmessage = (event) => {
     const { data } = event;
     if (data.type === "start") {
-        AIModule.initializeModels().then((module) => {
-            ai_module = module;
-            console.log("worker initialized");
-        });
+        ai_module = data.ai_module;
     }
     else {
         if (!ai_module) {
             console.error("AI module not initialized");
             return;
         }
-
-        ai_module.runDeeplab(data.image).then((segmentationMapData) => {
+        tf.engine().startScope();
+        ai_module.predict(data.webgldata).then((segmentationMapData) => {
             self.postMessage({ segmentationMapData: segmentationMapData });
         });
+        tf.engine().endScope();
+        tf.engine().disposeVariables();
+        
     }
 };
-*/

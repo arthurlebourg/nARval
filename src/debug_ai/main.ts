@@ -226,14 +226,12 @@ async function utilDrawSeg(segMap : tf.Tensor, video : HTMLVideoElement | HTMLIm
 
 async function run() {
     status('Setting up webcam...');
-    //const video = await setupWebcam();
+    const video = await setupWebcam();
 
-    // put image "https://upload.wikimedia.org/wikipedia/az/6/6d/Abbey_Road_%28albom%29.jpg"
-
-    const video = document.createElement('img');
+    /*const video = document.createElement('img');
     video.src = "./Abbey_Road_(albom).jpg";
     document.body.appendChild(video);
-    await video.decode();
+    await video.decode();*/
     status('Loading model...');
     const model = await tf.loadGraphModel('../TopFormer.tfjs/model.json');
     status('Model is ready');
@@ -241,22 +239,27 @@ async function run() {
     // Set up canvas for segmentation output
     const canvas = document.createElement('canvas');
     document.body.appendChild(canvas);
-
+    console.log(tf.memory());
+    tf.env().set("WEBGL_DELETE_TEXTURE_THRESHOLD", 256000000);
     // Run segmentation on each frame
     async function predict() {
+        tf.engine().startScope();
         const tensor = tf.browser.fromPixels(video);
         const preprocessed = preprocess(tensor);
         tensor.dispose();
         //preprocessed.print();
         const segmentation = await model.executeAsync({ input: preprocessed }) as tf.Tensor;
-        segmentation.print();
         preprocessed.dispose();
         const seg = postprocess(segmentation) as tf.Tensor3D;
-        console.log("seg:");
-        seg.print();
+        segmentation.dispose();
         // Display the segmentation on the canvas
         utilDrawSeg(seg, video, canvas);
-        //requestAnimationFrame(predict);
+        seg.dispose();
+        tf.engine().endScope();
+        tf.engine().disposeVariables();
+        console.log(tf.memory());
+
+        requestAnimationFrame(predict);
     }
 
     predict();
