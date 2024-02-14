@@ -48,7 +48,8 @@ type NetworkedComponentType = {
 
 export const NetworkedComponent = defineComponent<NetworkedComponentType>(NetworkedSchema)
 
-export function setup_entity(three_object: Object3D, world: IWorld) {
+export function setup_entity(three_object: Object3D, world: IWorld)
+{
     const ent = addEntity(world);
 
     addComponent(world, TransformComponent, ent);

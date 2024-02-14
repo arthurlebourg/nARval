@@ -1,46 +1,46 @@
 import * as tf from '@tensorflow/tfjs';
 
 const colorMap: Record<number, [number, number, number]> = {
-    0: [120,120,120],
-    1: [120,120,180],
-    2: [230,230,6],
-    3: [50,50,80],
-    4: [3,200,4],
-    5: [80,120,120],
-    6: [140,140,140],
-    7: [255,5,204],
-    8: [230,230,230],
-    9: [7,250,4],
-    10: [255,5,224],
-    11: [7,255,235],
-    12: [61,5,150],
-    13: [70,120,120],
-    14: [51,255,8],
-    15: [82,6,255],
-    16: [140,255,143],
-    17: [4,255,204],
-    18: [7,51,255],
-    19: [3,70,204],
-    20: [200,102,0],
-    21: [250,230,61],
-    22: [51,6,255],
-    23: [255,102,11],
-    24: [71,7,255],
-    25: [224,9,255],
-    26: [230,7,9],
-    27: [220,220,220],
-    28: [92,9,255],
-    29: [255,9,112],
-    30: [214,255,8],
-    31: [224,255,7],
-    32: [6,184,255],
-    33: [71,255,10],
-    34: [10,41,255],
-    35: [255,255,7],
-    36: [8,255,224],
-    37: [255,8,102],
-    38: [6,61,255],
-    39: [7,194,255],
+    0: [120, 120, 120],
+    1: [120, 120, 180],
+    2: [230, 230, 6],
+    3: [50, 50, 80],
+    4: [3, 200, 4],
+    5: [80, 120, 120],
+    6: [140, 140, 140],
+    7: [255, 5, 204],
+    8: [230, 230, 230],
+    9: [7, 250, 4],
+    10: [255, 5, 224],
+    11: [7, 255, 235],
+    12: [61, 5, 150],
+    13: [70, 120, 120],
+    14: [51, 255, 8],
+    15: [82, 6, 255],
+    16: [140, 255, 143],
+    17: [4, 255, 204],
+    18: [7, 51, 255],
+    19: [3, 70, 204],
+    20: [200, 102, 0],
+    21: [250, 230, 61],
+    22: [51, 6, 255],
+    23: [255, 102, 11],
+    24: [71, 7, 255],
+    25: [224, 9, 255],
+    26: [230, 7, 9],
+    27: [220, 220, 220],
+    28: [92, 9, 255],
+    29: [255, 9, 112],
+    30: [214, 255, 8],
+    31: [224, 255, 7],
+    32: [6, 184, 255],
+    33: [71, 255, 10],
+    34: [10, 41, 255],
+    35: [255, 255, 7],
+    36: [8, 255, 224],
+    37: [255, 8, 102],
+    38: [6, 61, 255],
+    39: [7, 194, 255],
     40: [8, 122, 255],
     41: [20, 255, 0],
     42: [41, 8, 255],
@@ -153,13 +153,15 @@ const colorMap: Record<number, [number, number, number]> = {
     149: [255, 0, 92],
 };
 
-const status = (message: string) => {
+const status = (message: string) =>
+{
     const statusMessage = document.getElementById('status-message')!;
     statusMessage.innerText = message;
     console.log(message);
 };
 
-async function setupWebcam() : Promise<HTMLVideoElement> {
+async function setupWebcam(): Promise<HTMLVideoElement>
+{
     const video = document.createElement('video');
     video.width = 512;
     video.height = 512;
@@ -171,14 +173,17 @@ async function setupWebcam() : Promise<HTMLVideoElement> {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 512, height: 512 } });
     video.srcObject = stream;
 
-    return new Promise((resolve) => {
-        video.onloadedmetadata = () => {
+    return new Promise((resolve) =>
+    {
+        video.onloadedmetadata = () =>
+        {
             resolve(video);
         };
     });
 }
 
-function preprocess(input: tf.Tensor3D): tf.Tensor {
+function preprocess(input: tf.Tensor3D): tf.Tensor
+{
     const resized = tf.image.resizeBilinear(input, [512, 512]).cast('int32') as tf.Tensor3D;
     const inputImgFloat = resized.toFloat().div(255.0);
     // Scale input pixel values to -1 to 1
@@ -201,15 +206,17 @@ function preprocess(input: tf.Tensor3D): tf.Tensor {
     return inputTensor;
 }
 
-function postprocess(output: tf.Tensor): tf.Tensor {
+function postprocess(output: tf.Tensor): tf.Tensor
+{
     //return tf.argMax(output.squeeze(), 2); 
     return output.argMax(1).squeeze();
 }
 
-async function utilDrawSeg(segMap : tf.Tensor, video : HTMLVideoElement | HTMLImageElement, canvas : HTMLCanvasElement) {
+async function utilDrawSeg(segMap: tf.Tensor, video: HTMLVideoElement | HTMLImageElement, canvas: HTMLCanvasElement)
+{
     const imgHeight = video.height;
     const imgWidth = video.width;
-  
+
     // Reshape to 3D tensor, resize, and reshape back to 2D tensor
     const reshapedTensor = segMap.reshape([1, segMap.shape[0], segMap.shape[1]!, 1]) as tf.Tensor3D;
     const resizedTensor3D = tf.image.resizeBilinear(reshapedTensor, [imgHeight, imgWidth]);
@@ -220,11 +227,12 @@ async function utilDrawSeg(segMap : tf.Tensor, video : HTMLVideoElement | HTMLIm
     // Use tf.gather to replace class indices with colors
     const colorTensor = tf.gather(colorMapTensor, resizedTensor2D) as tf.Tensor3D;
     tf.browser.toPixels(colorTensor, canvas);
-  
-    return canvas;
-  }
 
-async function run() {
+    return canvas;
+}
+
+async function run()
+{
     status('Setting up webcam...');
     const video = await setupWebcam();
 
@@ -242,7 +250,8 @@ async function run() {
     console.log(tf.memory());
     tf.env().set("WEBGL_DELETE_TEXTURE_THRESHOLD", 256000000);
     // Run segmentation on each frame
-    async function predict() {
+    async function predict()
+    {
         tf.engine().startScope();
         const tensor = tf.browser.fromPixels(video);
         const preprocessed = preprocess(tensor);
